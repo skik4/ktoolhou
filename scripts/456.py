@@ -14,7 +14,7 @@ if hou.isUIAvailable():
         timer.timeout.connect(lambda: (msg.done(QtWidgets.QMessageBox.Yes)))
         timer.start(5000)
 
-        result = msg.exec_()
+        result = msg.exec()
         timer.stop()
 
         if result == QtWidgets.QMessageBox.Yes:
