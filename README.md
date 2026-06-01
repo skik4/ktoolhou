@@ -1,2 +1,2 @@
 # ktoolhou
-A procedural asset and scripts library for SideFX Houdini.
+A procedural assets and scripts library for SideFX Houdini.
