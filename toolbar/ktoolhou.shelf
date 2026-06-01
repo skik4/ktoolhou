@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<shelfDocument>
+  <!-- This file contains definitions of shelves, toolbars, and tools.
+ It should not be hand-edited when it is being used by the application.
+ Note, that two definitions of the same element are not allowed in
+ a single file. -->
+
+  <toolshelf name="ktoolhou_shelf" label="Ktoolhou Shelf">
+    <memberTool name="null_merge_kth"/>
+    <memberTool name="extract_asset_to_subnet_kth"/>
+  </toolshelf>
+
+  <tool name="null_merge_kth" label="Null to Object Merge kth" icon="D:/Repository/ktoolhou/icons/ktoolhou.svg">
+    <script scriptType="python"><![CDATA[import hou
+
+nulls = []
+
+clip = hou.ui.getTextFromClipboard()
+
+if clip is not None:
+    paths = clip.split()
+    for path in paths:
+        node = hou.node(path)
+        type_name = node.type().name()
+        if type_name == "null":
+            nulls.append(node)
+            
+pane = hou.ui.curDesktop().paneTabUnderCursor()
+if not isinstance(pane, hou.NetworkEditor):
+    pane = hou.ui.paneTabOfType(hou.paneTabType.NetworkEditor)
+
+net = pane.pwd()
+
+
+for n in nulls:
+    merge = net.createNode("object_merge", node_name=f"object_merge_{n.name()}")
+
+    merge.parm("objpath1").set(n.path())
+    merge.parm("xformtype").set(1)  # Into This Object
+
+    merge.moveToGoodPosition()
+
+]]></script>
+  </tool>
+
+  <tool name="extract_asset_to_subnet_kth" label="Extract Asset to Subnet kth" icon="D:/Repository/ktoolhou/icons/ktoolhou.svg">
+    <script scriptType="python"><![CDATA[import hou
+
+
+def collect_parm_data(node):
+    """Collect visible parameter values and expressions from a node."""
+    parm_data = {}
+    for parm in node.parms():
+        if not parm.isVisible():
+            continue
+        try:
+            expr = parm.expression()
+        except hou.OperationFailed:
+            expr = None
+        parm_data[parm.name()] = {
+            "value": parm.eval(),
+            "expression": expr
+        }
+    return parm_data
+
+
+def restore_parm_data(node, parm_data):
+    """Restore parameter values and expressions to a node."""
+    for parm in node.parms():
+        name = parm.name()
+        if name not in parm_data:
+            continue
+        try:
+            parm.set(parm_data[name]["value"])
+            if parm_data[name]["expression"] is not None:
+                parm.setExpression(parm_data[name]["expression"])
+        except hou.OperationFailed:
+            pass
+
+
+def rewire_inputs(src_node, dst_node):
+    """Connect the same inputs to dst_node that src_node had."""
+    for input_node in src_node.inputs():
+        try:
+            dst_node.setNextInput(input_node)
+        except hou.OperationFailed:
+            pass
+
+
+def rewire_outputs(src_node, dst_node):
+    """Redirect all downstream connections from src_node to dst_node."""
+    for conn in src_node.outputConnections():
+        conn.outputItem().setInput(conn.inputIndex(), dst_node, conn.outputIndex())
+
+
+def extract_asset_to_subnet(node):
+    """
+    Extract an HDA into a plain subnet, preserving parameters,
+    connections, and internal network contents.
+    """
+    parent = node.parent()
+    parm_data = collect_parm_data(node)
+
+    if node.type().definition() is not None and not node.isEditable():
+        node.allowEditingOfContents()
+
+    new_node = parent.createNode("subnet", node.name() + "_extracted")
+    new_node.setParmTemplateGroup(node.parmTemplateGroup())
+    new_node.setPosition(node.position() + hou.Vector2(1, 0))
+
+    restore_parm_data(new_node, parm_data)
+    rewire_inputs(node, new_node)
+    rewire_outputs(node, new_node)
+
+    hou.copyNodesTo(node.children(), new_node)
+
+    node.bypass(True)
+    new_node.setDisplayFlag(True)
+
+
+# --- Shelf tool entry point ---
+selected = hou.selectedNodes()
+if not selected:
+    hou.ui.displayMessage("No nodes selected.", severity=hou.severityType.Warning)
+else:
+    for node in selected:
+        extract_asset_to_subnet(node)]]></script>
+  </tool>
+</shelfDocument>
