@@ -1,0 +1,13 @@
+# Houdini backups
+**/backup
+
+# Houdini backup files
+*.bak
+
+# Python
+**/*.pyc
+__pycache__/
+
+# OS
+Thumbs.db
+.DS_Store
